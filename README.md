@@ -26,6 +26,28 @@ logger "TEST FROM MOHINI"
 ### Result
 
 Test log successfully appeared in syslog.
+## Step 2: Firewall Logging (UFW)
+
+### Objective
+
+Verify firewall logs are generated and captured in syslog.
+
+### Commands Used
+
+```bash
+sudo ufw enable
+sudo ufw logging high
+sudo ufw deny 8080
+```
+
+### Result
+
+Firewall logs (UFW AUDIT/BLOCK) appeared in syslog when external traffic was generated.
+
+### Conclusion
+
+Firewall logging is successfully integrated with syslog.
+
 
 ### Conclusion
 
