@@ -1,54 +1,179 @@
-# wazuh-firewall-log-ingestion-pipeline
-SOC lab demonstrating firewall log ingestion pipeline using Wazuh with syslog-based log collection.
-# Wazuh Firewall Log Ingestion Pipeline
+# Wazuh Firewall Monitoring and Threat Analysis using UFW
 
 ## Overview
 
-This project demonstrates building a firewall log ingestion pipeline using Wazuh in a SOC environment.
+This project demonstrates how to build a firewall monitoring pipeline using UFW and Wazuh. It captures blocked network traffic, forwards logs to a SIEM system, and enables analysis through the Wazuh dashboard.
+
+---
 
 ## Architecture
 
-Firewall → syslog → Wazuh Agent → Wazuh Server → Dashboard
-
-## Step 1: Syslog Verification
-
-### Objective
-
-Verify that system logging is working correctly.
-
-### Commands Used
-
-```bash
-sudo tail -f /var/log/syslog
-logger "TEST FROM MOHINI"
+```
+External Traffic
+      ↓
+UFW Firewall (Block + Log)
+      ↓
+/var/log/ufw.log
+      ↓
+Wazuh Agent
+      ↓
+Wazuh Manager
+      ↓
+Filebeat
+      ↓
+OpenSearch Index (wazuh-archives-*)
+      ↓
+Wazuh Dashboard
 ```
 
-### Result
+---
 
-Test log successfully appeared in syslog.
-## Step 2: Firewall Logging (UFW)
+## Step 1: Firewall Configuration
 
-### Objective
+Install and enable UFW:
 
-Verify firewall logs are generated and captured in syslog.
-
-### Commands Used
-
-```bash
+```
+sudo apt install ufw
 sudo ufw enable
 sudo ufw logging high
 sudo ufw deny 8080
 ```
 
-### Result
+---
 
-Firewall logs (UFW AUDIT/BLOCK) appeared in syslog when external traffic was generated.
+## Step 2: Generate Traffic
 
-### Conclusion
+Simulate external access attempts:
 
-Firewall logging is successfully integrated with syslog.
+```
+Test-NetConnection <public-ip> -Port 8080
+```
 
+This generates real network traffic to trigger firewall logs.
 
-### Conclusion
+---
 
-Syslog is working correctly and ready for firewall log ingestion.
+## Step 3: Verify Firewall Logs
+
+Check logs on the agent machine:
+
+```
+tail -f /var/log/ufw.log
+```
+
+Example:
+
+```
+UFW BLOCK IN=ens4 SRC=72.x.x.x DPT=8080
+```
+
+---
+
+## Step 4: Wazuh Agent Configuration
+
+Edit configuration:
+
+```
+sudo nano /var/ossec/etc/ossec.conf
+```
+
+Add:
+
+```
+<localfile>
+  <log_format>syslog</log_format>
+  <location>/var/log/ufw.log</location>
+</localfile>
+```
+
+Restart agent:
+
+```
+sudo systemctl restart wazuh-agent
+```
+
+---
+
+## Step 5: Enable Log Indexing
+
+Edit Filebeat configuration:
+
+```
+sudo nano /etc/filebeat/filebeat.yml
+```
+
+Update:
+
+```
+filebeat.modules:
+  - module: wazuh
+    alerts:
+      enabled: true
+    archives:
+      enabled: true
+```
+
+Restart Filebeat:
+
+```
+sudo systemctl restart filebeat
+```
+
+---
+
+## Step 6: Log Analysis
+
+Query used in dashboard:
+
+```
+UFW AND BLOCK
+```
+
+---
+
+## Observations
+
+* Multiple external IP addresses attempted connections
+* Common target ports:
+
+  * 22 (SSH)
+  * 443 (HTTPS)
+  * 8080
+
+---
+
+## Security Analysis
+
+The logs indicate automated scanning activity from external sources. These are common reconnaissance attempts against publicly exposed servers. All attempts were successfully blocked by the firewall.
+
+---
+
+## Key Learnings
+
+* Difference between journald and syslog logging
+* Log ingestion pipeline from endpoint to SIEM
+* Debugging Wazuh agent and Filebeat issues
+* Real-world exposure of public servers to scanning activity
+
+---
+
+## Result
+
+Firewall logs were successfully:
+
+* Generated using UFW
+* Collected by Wazuh agent
+* Forwarded to Wazuh manager
+* Indexed in OpenSearch
+* Visualized in dashboard
+
+---
+
+## Future Improvements
+
+* Implement detection rules for repeated attempts
+* Add alerting for suspicious IP activity
+* Integrate geo-location enrichment
+* Build dashboards for attack patterns
+
+---
